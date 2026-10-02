@@ -4,28 +4,30 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ระบบจองห้องปฏิบัติการคอมพิวเตอร์ - มหาวิทยาลัยมหิดล วิทยาเขตกาญจนบุรี</title>
+  
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- FullCalendar v5 (เสถียรสูงสุด รองรับภาษาไทยในตัว ไม่เออเร่อ) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/th.js"></script>
+  <!-- FullCalendar v6 (Global Bundle ตัวเต็ม มีภาษาไทยและปลั๊กอินครบในไฟล์เดียว ไม่ Error แน่นอน) -->
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- SheetJS (Excel Export) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   
   <style>
     body { font-family: 'Sarabun', sans-serif; }
     .fc-event { cursor: pointer; border-radius: 4px; padding: 2px 4px; font-size: 0.85rem; }
-    /* บังคับขนาดความสูงของปฏิทินให้แสดงแน่นอน */
+    /* บังคับขนาดกล่องปฏิทินให้แสดงแน่นอน 100% */
     #calendar {
       min-height: 650px !important;
-      height: 650px !important;
-      display: block !important;
+      width: 100% !important;
+      background-color: #ffffff;
     }
   </style>
 </head>
@@ -186,7 +188,7 @@
         </div>
         
         <!-- จุดวางปฏิทิน -->
-        <div id="calendar" class="w-full bg-white"></div>
+        <div id="calendar"></div>
       </div>
     </div>
 
@@ -278,8 +280,8 @@
   </div>
 
   <script>
-    // URL Google Apps Script[cite: 1, 2]
-    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxy-cSuQea_8odsvcVIATrz8Tp0vWrdX35Hlx9-m5ofvnbf-vChbTgbQCv4qvBDINDb/exec";[cite: 1, 2]
+    // URL Google Apps Script[cite: 1, 2, 3]
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxy-cSuQea_8odsvcVIATrz8Tp0vWrdX35Hlx9-m5ofvnbf-vChbTgbQCv4qvBDINDb/exec";[cite: 1, 2, 3]
 
     const ROOM_COLORS = {
       'Lab computer 2201': { bg: '#dc2626', text: '#ffffff' },
@@ -292,7 +294,14 @@
     let currentFilter = 'all';
     let chartRoomInstance = null;
     let chartPurposeInstance = null;
-    let bookings = JSON.parse(localStorage.getItem('muka_bookings') || '[]');
+    
+    // โหลดข้อมูลที่มีในเครื่องขึ้นมาก่อนทันทีเพื่อความเร็ว
+    let bookings = [];
+    try {
+      bookings = JSON.parse(localStorage.getItem('muka_bookings')) || [];
+    } catch(e) {
+      bookings = [];
+    }
 
     function normalizeDate(d) {
       if (!d) return '';
@@ -312,13 +321,16 @@
       }
     }
 
-    // วาดปฏิทินทันทีเมื่อหน้าจอโหลดพร้อม
-    window.addEventListener('load', () => {
+    // เริ่มต้นทำงานทันทีที่ DOM พร้อม
+    document.addEventListener('DOMContentLoaded', () => {
       const todayStr = new Date().toISOString().split('T')[0];
       const dateInput = document.getElementById('bookingDate');
       if (dateInput) dateInput.value = todayStr;
 
+      // วาดปฏิทินทันที
       initCalendar();
+
+      // ดึงข้อมูลล่าสุดจาก Sheets
       fetchBookingsFromSheet();
     });
 
@@ -326,25 +338,29 @@
       const calendarEl = document.getElementById('calendar');
       if (!calendarEl) return;
 
-      calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'timeGridWeek',
-        locale: 'th',
-        headerToolbar: {
-          left: 'prev,next today',
-          center: 'title',
-          right: 'dayGridMonth,timeGridWeek,timeGridDay'
-        },
-        slotMinTime: '08:00:00',
-        slotMaxTime: '20:00:00',
-        allDaySlot: false,
-        expandRows: true,
-        height: 650,
-        events: getFormattedEvents(),
-        eventClick: (info) => {
-          showEventDetails(info.event.extendedProps);
-        }
-      });
-      calendar.render();
+      try {
+        calendar = new FullCalendar.Calendar(calendarEl, {
+          initialView: 'timeGridWeek',
+          timeZone: 'Asia/Bangkok',
+          locale: 'th',
+          headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+          },
+          slotMinTime: '08:00:00',
+          slotMaxTime: '20:00:00',
+          allDaySlot: false,
+          height: 650,
+          events: getFormattedEvents(),
+          eventClick: (info) => {
+            showEventDetails(info.event.extendedProps);
+          }
+        });
+        calendar.render();
+      } catch (err) {
+        console.error("Calendar Render Error:", err);
+      }
     }
 
     function getFormattedEvents() {
@@ -390,7 +406,7 @@
           }
         }
       } catch (err) {
-        console.warn("ดึงข้อมูลจากชีตไม่สำเร็จ ใช้ข้อมูลในเครื่อง:", err);
+        console.warn("ดึงข้อมูลจาก Sheets ไม่สำเร็จ ใช้ข้อมูลในเครื่องแทน");
       }
     }
 
@@ -406,7 +422,7 @@
         btnBooking.className = "px-4 py-1.5 rounded-md font-medium transition bg-blue-600 text-white";
         btnDashboard.className = "px-4 py-1.5 rounded-md font-medium transition text-blue-200 hover:text-white";
         if (calendar) {
-          setTimeout(() => { calendar.render(); }, 50);
+          setTimeout(() => { calendar.updateSize(); }, 50);
         }
       } else {
         btnDashboard.className = "px-4 py-1.5 rounded-md font-medium transition bg-blue-600 text-white";
@@ -486,12 +502,12 @@
       submitBtn.disabled = true;
       submitBtn.innerText = 'กำลังบันทึกลงระบบ...';
 
-      // บันทึกลงตัวแปรและแสดงบนปฏิทินทันที
+      // 1. บันทึกข้อมูลและแสดงบนปฏิทินทันที
       bookings.push(...newItems);
       localStorage.setItem('muka_bookings', JSON.stringify(bookings));
       refreshCalendarEvents();
 
-      // ยิงข้อมูลไปหา Google Sheets
+      // 2. ส่งข้อมูลไป Google Sheets เบื้องหลัง
       try {
         await fetch(GAS_API_URL, {
           method: 'POST',
@@ -500,7 +516,7 @@
           body: JSON.stringify(newItems)
         });
       } catch (err) {
-        console.error(err);
+        console.error("บันทึกไป Google Sheets ไม่สำเร็จ:", err);
       }
 
       alert(`บันทึกข้อมูลการจองสำเร็จ ${newItems.length} รายการ`);
