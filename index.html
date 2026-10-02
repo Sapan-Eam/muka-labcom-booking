@@ -16,6 +16,8 @@
   <style>
     body { font-family: 'Sarabun', sans-serif; }
     .fc-event { cursor: pointer; border-radius: 4px; padding: 2px 4px; font-size: 0.85rem; }
+    /* ป้องกันปฏิทินยุบตัว */
+    #calendar { min-height: 600px; width: 100%; background: #ffffff; }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
@@ -173,7 +175,7 @@
             <button onclick="setFilter('Active learning 2316')" class="filter-btn px-2.5 py-1 rounded text-white font-medium bg-blue-600" data-filter="Active learning 2316">2316 (น้ำเงิน)</button>
           </div>
         </div>
-        <div id="calendar" class="flex-1 min-h-[550px]"></div>
+        <div id="calendar"></div>
       </div>
     </div>
 
@@ -265,8 +267,8 @@
   </div>
 
   <script>
-    // URL API จาก Google Apps Script
-    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxy-cSuQea_8odsvcVIATrz8Tp0vWrdX35Hlx9-m5ofvnbf-vChbTgbQCv4qvBDINDb/exec";[cite: 1]
+    // URL Google Apps Script[cite: 1, 2]
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxy-cSuQea_8odsvcVIATrz8Tp0vWrdX35Hlx9-m5ofvnbf-vChbTgbQCv4qvBDINDb/exec";[cite: 1, 2]
 
     const ROOM_COLORS = {
       'Lab computer 2201': { bg: '#dc2626', text: '#ffffff' },
@@ -275,17 +277,39 @@
       'Active learning 2316': { bg: '#2563eb', text: '#ffffff' }
     };
 
-    let calendar;
+    let calendar = null;
     let currentFilter = 'all';
     let chartRoomInstance = null;
     let chartPurposeInstance = null;
-    let bookings = [];
+    let bookings = JSON.parse(localStorage.getItem('muka_bookings') || '[]');
+
+    // ฟังก์ชันแปลงวันเวลาให้เป็น ISO String ปลอดภัยเสมอ
+    function normalizeDate(d) {
+      if (!d) return '';
+      if (typeof d === 'string' && d.includes('T')) return d;
+      try {
+        const dt = new Date(d);
+        if (isNaN(dt.getTime())) return String(d);
+        const y = dt.getFullYear();
+        const m = String(dt.getMonth() + 1).padStart(2, '0');
+        const day = String(dt.getDate()).padStart(2, '0');
+        const h = String(dt.getHours()).padStart(2, '0');
+        const min = String(dt.getMinutes()).padStart(2, '0');
+        const s = String(dt.getSeconds()).padStart(2, '0');
+        return `${y}-${m}-${day}T${h}:${min}:${s}`;
+      } catch (e) {
+        return String(d);
+      }
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
       const todayStr = new Date().toISOString().split('T')[0];
-      document.getElementById('bookingDate').value = todayStr;
+      const dateInput = document.getElementById('bookingDate');
+      if (dateInput) dateInput.value = todayStr;
 
+      // วาดปฏิทินทันที ไม่ต้องรอ API
       initCalendar();
+      // ดึงข้อมูลจาก Sheets
       fetchBookingsFromSheet();
     });
 
@@ -294,23 +318,32 @@
       try {
         const res = await fetch(GAS_API_URL);
         const result = await res.json();
-        if (result.status === 'success') {
-          bookings = result.data;
+        if (result && result.status === 'success' && Array.isArray(result.data)) {
+          // ทำความสะอาด Format วันเวลาที่ดึงมาจาก Sheet
+          bookings = result.data.map(item => ({
+            ...item,
+            start: normalizeDate(item.start),
+            end: normalizeDate(item.end)
+          }));
+          localStorage.setItem('muka_bookings', JSON.stringify(bookings));
           refreshCalendarEvents();
           if (!document.getElementById('tabDashboard').classList.contains('hidden')) {
             renderDashboard();
           }
         }
       } catch (err) {
-        console.error("เกิดข้อผิดพลาดในการโหลดข้อมูล:", err);
+        console.warn("ไม่สามารถดึงข้อมูลจาก Google Sheets ได้ ใช้ข้อมูลออฟไลน์ชั่วคราว:", err);
+        refreshCalendarEvents();
       }
     }
 
     function initCalendar() {
       const calendarEl = document.getElementById('calendar');
+      if (!calendarEl) return;
+      
       calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'timeGridWeek',
-        timeZone: 'Asia/Bangkok',
+        timeZone: 'local',
         locale: 'th',
         headerToolbar: {
           left: 'prev,next today',
@@ -335,10 +368,10 @@
         .map(b => {
           const color = ROOM_COLORS[b.room] || { bg: '#4b5563', text: '#ffffff' };
           return {
-            id: String(b.id),
+            id: String(b.id || Date.now()),
             title: b.room,
-            start: b.start,
-            end: b.end,
+            start: normalizeDate(b.start),
+            end: normalizeDate(b.end),
             backgroundColor: color.bg,
             borderColor: color.bg,
             textColor: color.text,
@@ -365,7 +398,9 @@
       if (isBooking) {
         btnBooking.className = "px-4 py-1.5 rounded-md font-medium transition bg-blue-600 text-white";
         btnDashboard.className = "px-4 py-1.5 rounded-md font-medium transition text-blue-200 hover:text-white";
-        setTimeout(() => calendar.updateSize(), 50);
+        if (calendar) {
+          setTimeout(() => calendar.updateSize(), 100);
+        }
       } else {
         btnDashboard.className = "px-4 py-1.5 rounded-md font-medium transition bg-blue-600 text-white";
         btnBooking.className = "px-4 py-1.5 rounded-md font-medium transition text-blue-200 hover:text-white";
@@ -444,6 +479,12 @@
       submitBtn.disabled = true;
       submitBtn.innerText = 'กำลังบันทึกลงระบบ...';
 
+      // 1. เพิ่มเข้า Local Data ทันทีเพื่อให้แสดงผลบนปฏิทินทันทีโดยไม่ต้องรอ
+      bookings.push(...newItems);
+      localStorage.setItem('muka_bookings', JSON.stringify(bookings));
+      refreshCalendarEvents();
+
+      // 2. ส่งข้อมูลบันทึกลง Google Sheet ทางหลังบ้าน
       try {
         await fetch(GAS_API_URL, {
           method: 'POST',
@@ -451,22 +492,20 @@
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(newItems)
         });
-
-        alert(`บันทึกข้อมูลการจองสำเร็จ ${newItems.length} รายการ`);
-        document.getElementById('bookingForm').reset();
-        document.getElementById('bookingDate').value = baseDate;
-        toggleRecurrence();
-
-        setTimeout(async () => {
-          await fetchBookingsFromSheet();
-        }, 1500);
-
       } catch (err) {
-        alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.innerText = 'ยืนยันการบันทึกข้อมูล';
+        console.error("ส่งเข้า Sheets ไม่สำเร็จ:", err);
       }
+
+      alert(`บันทึกข้อมูลการจองสำเร็จ ${newItems.length} รายการ`);
+      document.getElementById('bookingForm').reset();
+      document.getElementById('bookingDate').value = baseDate;
+      toggleRecurrence();
+
+      submitBtn.disabled = false;
+      submitBtn.innerText = 'ยืนยันการบันทึกข้อมูล';
+
+      // รีเฟรชข้อมูลจาก Sheets ยืนยันอีกรอบ
+      setTimeout(fetchBookingsFromSheet, 2000);
     }
 
     function setFilter(roomName) {
@@ -476,15 +515,15 @@
 
     function showEventDetails(props) {
       const content = `
-        <p><strong>ห้อง:</strong> ${props.room}</p>
-        <p><strong>วิชา/กิจกรรม:</strong> ${props.activityTitle}</p>
-        <p><strong>วัตถุประสงค์:</strong> ${props.purpose}</p>
+        <p><strong>ห้อง:</strong> ${props.room || '-'}</p>
+        <p><strong>วิชา/กิจกรรม:</strong> ${props.activityTitle || '-'}</p>
+        <p><strong>วัตถุประสงค์:</strong> ${props.purpose || '-'}</p>
         <p><strong>เวลา:</strong> ${new Date(props.start).toLocaleString('th-TH')} - ${new Date(props.end).toLocaleTimeString('th-TH')}</p>
         <hr class="my-2 border-slate-100">
-        <p><strong>ผู้จอง:</strong> ${props.fullName}</p>
-        <p><strong>หน่วยงาน:</strong> ${props.department}</p>
-        <p><strong>เบอร์โทรศัพท์:</strong> ${props.phone}</p>
-        <p><strong>อีเมล:</strong> ${props.email}</p>
+        <p><strong>ผู้จอง:</strong> ${props.fullName || '-'}</p>
+        <p><strong>หน่วยงาน:</strong> ${props.department || '-'}</p>
+        <p><strong>เบอร์โทรศัพท์:</strong> ${props.phone || '-'}</p>
+        <p><strong>อีเมล:</strong> ${props.email || '-'}</p>
       `;
       document.getElementById('modalDetails').innerHTML = content;
       document.getElementById('eventModal').classList.remove('hidden');
@@ -502,10 +541,12 @@
       const purposeCounts = {};
 
       bookings.forEach(b => {
-        const h = (new Date(b.end) - new Date(b.start)) / (1000 * 60 * 60);
+        const startDt = new Date(b.start);
+        const endDt = new Date(b.end);
+        const h = (endDt - startDt) / (1000 * 60 * 60);
         totalHours += isNaN(h) ? 0 : h;
-        roomCounts[b.room] = (roomCounts[b.room] || 0) + 1;
-        purposeCounts[b.purpose] = (purposeCounts[b.purpose] || 0) + 1;
+        if (b.room) roomCounts[b.room] = (roomCounts[b.room] || 0) + 1;
+        if (b.purpose) purposeCounts[b.purpose] = (purposeCounts[b.purpose] || 0) + 1;
       });
 
       document.getElementById('kpiTotalHours').innerText = `${totalHours.toFixed(1)} ชม.`;
@@ -517,18 +558,23 @@
       document.getElementById('kpiTopPurpose').innerText = topPurpose ? `${topPurpose[0]} (${topPurpose[1]} ครั้ง)` : '-';
 
       const tbody = document.getElementById('bookingsTableBody');
-      tbody.innerHTML = bookings.map(b => `
-        <tr class="hover:bg-slate-50 transition">
-          <td class="p-3">${b.start ? b.start.split('T')[0] : '-'}</td>
-          <td class="p-3">${b.start ? b.start.split('T')[1].substring(0,5) : ''} - ${b.end ? b.end.split('T')[1].substring(0,5) : ''}</td>
-          <td class="p-3 font-semibold">${b.room}</td>
-          <td class="p-3">${b.activityTitle}</td>
-          <td class="p-3">${b.purpose}</td>
-          <td class="p-3">${b.fullName}</td>
-          <td class="p-3">${b.department}</td>
-          <td class="p-3">${b.phone}</td>
-        </tr>
-      `).join('');
+      tbody.innerHTML = bookings.map(b => {
+        const d = new Date(b.start);
+        const dateStr = !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : String(b.start);
+        const timeStr = !isNaN(d.getTime()) ? `${new Date(b.start).toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})} - ${new Date(b.end).toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})}` : '-';
+        return `
+          <tr class="hover:bg-slate-50 transition">
+            <td class="p-3">${dateStr}</td>
+            <td class="p-3">${timeStr}</td>
+            <td class="p-3 font-semibold">${b.room || '-'}</td>
+            <td class="p-3">${b.activityTitle || '-'}</td>
+            <td class="p-3">${b.purpose || '-'}</td>
+            <td class="p-3">${b.fullName || '-'}</td>
+            <td class="p-3">${b.department || '-'}</td>
+            <td class="p-3">${b.phone || '-'}</td>
+          </tr>
+        `;
+      }).join('');
 
       renderCharts(roomCounts, purposeCounts);
     }
@@ -537,48 +583,56 @@
       if (chartRoomInstance) chartRoomInstance.destroy();
       if (chartPurposeInstance) chartPurposeInstance.destroy();
 
-      const ctxRoom = document.getElementById('roomChart').getContext('2d');
-      chartRoomInstance = new Chart(ctxRoom, {
-        type: 'bar',
-        data: {
-          labels: Object.keys(ROOM_COLORS),
-          datasets: [{
-            label: 'จำนวนครั้งที่ใช้งาน',
-            data: Object.keys(ROOM_COLORS).map(k => roomCounts[k] || 0),
-            backgroundColor: ['#dc2626', '#eab308', '#059669', '#2563eb']
-          }]
-        },
-        options: { responsive: true, maintainAspectRatio: false }
-      });
+      const ctxRoomEl = document.getElementById('roomChart');
+      if (ctxRoomEl) {
+        chartRoomInstance = new Chart(ctxRoomEl.getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: Object.keys(ROOM_COLORS),
+            datasets: [{
+              label: 'จำนวนครั้งที่ใช้งาน',
+              data: Object.keys(ROOM_COLORS).map(k => roomCounts[k] || 0),
+              backgroundColor: ['#dc2626', '#eab308', '#059669', '#2563eb']
+            }]
+          },
+          options: { responsive: true, maintainAspectRatio: false }
+        });
+      }
 
-      const ctxPurpose = document.getElementById('purposeChart').getContext('2d');
-      chartPurposeInstance = new Chart(ctxPurpose, {
-        type: 'doughnut',
-        data: {
-          labels: Object.keys(purposeCounts),
-          datasets: [{
-            data: Object.values(purposeCounts),
-            backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6']
-          }]
-        },
-        options: { responsive: true, maintainAspectRatio: false }
-      });
+      const ctxPurposeEl = document.getElementById('purposeChart');
+      if (ctxPurposeEl) {
+        chartPurposeInstance = new Chart(ctxPurposeEl.getContext('2d'), {
+          type: 'doughnut',
+          data: {
+            labels: Object.keys(purposeCounts),
+            datasets: [{
+              data: Object.values(purposeCounts),
+              backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6']
+            }]
+          },
+          options: { responsive: true, maintainAspectRatio: false }
+        });
+      }
     }
 
     function exportToExcel() {
-      const dataToExport = bookings.map((b, index) => ({
-        'ลำดับ': index + 1,
-        'วันที่': b.start ? b.start.split('T')[0] : '',
-        'เวลาเริ่ม': b.start ? b.start.split('T')[1].substring(0,5) : '',
-        'เวลาสิ้นสุด': b.end ? b.end.split('T')[1].substring(0,5) : '',
-        'ห้อง': b.room,
-        'วิชา/กิจกรรม': b.activityTitle,
-        'วัตถุประสงค์': b.purpose,
-        'ชื่อ-สกุล ผู้จอง': b.fullName,
-        'หน่วยงาน/สาขาวิชา': b.department,
-        'เบอร์โทรศัพท์': b.phone,
-        'อีเมล': b.email
-      }));
+      const dataToExport = bookings.map((b, index) => {
+        const d = new Date(b.start);
+        const dateStr = !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : String(b.start);
+        return {
+          'ลำดับ': index + 1,
+          'วันที่': dateStr,
+          'เวลาเริ่ม': !isNaN(d.getTime()) ? new Date(b.start).toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}) : '',
+          'เวลาสิ้นสุด': !isNaN(d.getTime()) ? new Date(b.end).toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}) : '',
+          'ห้อง': b.room,
+          'วิชา/กิจกรรม': b.activityTitle,
+          'วัตถุประสงค์': b.purpose,
+          'ชื่อ-สกุล ผู้จอง': b.fullName,
+          'หน่วยงาน/สาขาวิชา': b.department,
+          'เบอร์โทรศัพท์': b.phone,
+          'อีเมล': b.email
+        };
+      });
 
       const ws = XLSX.utils.json_to_sheet(dataToExport);
       const wb = XLSX.utils.book_new();
