@@ -155,7 +155,7 @@
             </div>
           </div>
 
-          <button type="submit" class="w-full bg-blue-700 hover:bg-blue-800 text-white font-medium py-2.5 rounded-lg shadow transition mt-2">
+          <button id="submitBtn" type="submit" class="w-full bg-blue-700 hover:bg-blue-800 text-white font-medium py-2.5 rounded-lg shadow transition mt-2">
             ยืนยันการบันทึกข้อมูล
           </button>
         </form>
@@ -182,7 +182,6 @@
 
     <!-- TAB 2: Dashboard & Reports -->
     <div id="tabDashboard" class="hidden space-y-6">
-      <!-- Toolbar -->
       <div class="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 class="text-lg font-bold text-slate-800">แดชบอร์ดสรุปผลและรายงาน</h2>
@@ -193,7 +192,7 @@
             <span>📊</span> ส่งออก Excel (.xlsx)
           </button>
           <button onclick="window.print()" class="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 transition">
-            <span>🖨️</span> พิมพ์รายงาน / PDF
+            <span>🖨️️</span> พิมพ์รายงาน / PDF
           </button>
         </div>
       </div>
@@ -258,7 +257,7 @@
 
   <!-- Modal แสดงรายละเอียดการจองเมื่อคลิกในปฏิทิน -->
   <div id="eventModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-xl max-w-md w-full p-6 shadow-xl relative animate-fade-in">
+    <div class="bg-white rounded-xl max-w-md w-full p-6 shadow-xl relative">
       <h3 class="text-lg font-bold text-slate-800 mb-3 border-b pb-2 flex items-center gap-2">
         <span>📌</span> ข้อมูลรายละเอียดการจอง
       </h3>
@@ -273,60 +272,50 @@
 
   <!-- Script Logic -->
   <script>
-    // การกำหนดสีห้อง
+    // ==========================================
+    // 🔴 ใส่ URL ที่ได้จาก Google Apps Script ที่นี่
+    // ==========================================
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxy-cSuQea_8odsvcVIATrz8Tp0vWrdX35Hlx9-m5ofvnbf-vChbTgbQCv4qvBDINDb/exec";
+
     const ROOM_COLORS = {
-      'Lab computer 2201': { bg: '#dc2626', text: '#ffffff' },      // สีแดง
-      'Lab computer 2204': { bg: '#eab308', text: '#1e293b' },      // สีเหลือง
-      'Active learning 2314': { bg: '#059669', text: '#ffffff' },    // สีเขียว
-      'Active learning 2316': { bg: '#2563eb', text: '#ffffff' }     // สีน้ำเงิน
+      'Lab computer 2201': { bg: '#dc2626', text: '#ffffff' },
+      'Lab computer 2204': { bg: '#eab308', text: '#1e293b' },
+      'Active learning 2314': { bg: '#059669', text: '#ffffff' },
+      'Active learning 2316': { bg: '#2563eb', text: '#ffffff' }
     };
 
-    // ตัวแปรส่วนกลาง
     let calendar;
     let currentFilter = 'all';
     let chartRoomInstance = null;
     let chartPurposeInstance = null;
-
-    // ข้อมูลเริ่มต้นจำลอง (Local Storage หรือ Mockup Data)
-    let bookings = JSON.parse(localStorage.getItem('muka_bookings')) || [
-      {
-        id: '1',
-        title: 'Lab computer 2201',
-        room: 'Lab computer 2201',
-        activityTitle: 'วศสต 201 การวิเคราะห์ข้อมูล',
-        fullName: 'อ.ดร.ภาคภูมิ วิถีไทย',
-        phone: '081-234-5678',
-        email: 'parkpoom.vit@mahidol.ac.th',
-        department: 'สาขาวิชาวิศวกรรมสิ่งแวดล้อมและการจัดการภัยพิบัติ',
-        purpose: 'การเรียนการสอน',
-        start: '2026-10-05T09:00:00',
-        end: '2026-10-05T12:00:00'
-      },
-      {
-        id: '2',
-        title: 'Active learning 2314',
-        room: 'Active learning 2314',
-        activityTitle: 'อบรมการใช้งานระบบ ERP',
-        fullName: 'น.ส.กมลทิพย์ สุขุม',
-        phone: '089-876-5432',
-        email: 'kamoltip.suk@mahidol.ac.th',
-        department: 'งานเทคโนโลยีดิจิทัล',
-        purpose: 'อบรม/สัมนา',
-        start: '2026-10-06T13:00:00',
-        end: '2026-10-06T16:00:00'
-      }
-    ];
+    let bookings = [];
 
     document.addEventListener('DOMContentLoaded', () => {
-      // ตั้งค่า input วันที่ให้เป็นวันปัจจุบัน
       const todayStr = new Date().toISOString().split('T')[0];
       document.getElementById('bookingDate').value = todayStr;
 
-      // เริ่มทำงานปฏิทิน
       initCalendar();
+      fetchBookingsFromSheet();
     });
 
-    // เริ่มต้น FullCalendar
+    // ดึงข้อมูลการจองจาก Google Sheet ผ่าน API
+    async function fetchBookingsFromSheet() {
+      if (!GAS_API_URL || GAS_API_URL.includes("วาง_URL")) {
+        console.warn("ยังไม่ได้ตั้งค่า GAS_API_URL");
+        return;
+      }
+      try {
+        const res = await fetch(GAS_API_URL);
+        const result = await res.json();
+        if (result.status === 'success') {
+          bookings = result.data;
+          refreshCalendarEvents();
+        }
+      } catch (err) {
+        console.error("เกิดข้อผิดพลาดในการโหลดข้อมูลจาก Google Sheet:", err);
+      }
+    }
+
     function initCalendar() {
       const calendarEl = document.getElementById('calendar');
       calendar = new FullCalendar.Calendar(calendarEl, {
@@ -350,15 +339,14 @@
       calendar.render();
     }
 
-    // แปลงรูปแบบข้อมูลให้ตรงกับ FullCalendar
     function getFormattedEvents() {
       return bookings
         .filter(b => currentFilter === 'all' || b.room === currentFilter)
         .map(b => {
           const color = ROOM_COLORS[b.room] || { bg: '#4b5563', text: '#ffffff' };
           return {
-            id: b.id,
-            title: `${b.room}`,
+            id: String(b.id),
+            title: b.room,
             start: b.start,
             end: b.end,
             backgroundColor: color.bg,
@@ -369,7 +357,13 @@
         });
     }
 
-    // สลับแท็บ
+    function refreshCalendarEvents() {
+      if (calendar) {
+        calendar.removeAllEvents();
+        calendar.addEventSource(getFormattedEvents());
+      }
+    }
+
     function switchTab(tab) {
       const isBooking = tab === 'booking';
       document.getElementById('tabBooking').classList.toggle('hidden', !isBooking);
@@ -389,14 +383,11 @@
       }
     }
 
-    // ตัวเลือกแสดงจำนวนสัปดาห์
     function toggleRecurrence() {
-      const isWeekly = document.querySelector('input[name="recurrence"]:value="weekly"') || 
-                       document.querySelector('input[name="recurrence"]:checked').value === 'weekly';
+      const isWeekly = document.querySelector('input[name="recurrence"]:checked').value === 'weekly';
       document.getElementById('repeatWeeksContainer').classList.toggle('hidden', !isWeekly);
     }
 
-    // ฟังก์ชันตรวจสอบการชนของเวลา (Overlapping Check)
     function hasTimeConflict(newStart, newEnd, room) {
       const startMs = new Date(newStart).getTime();
       const endMs = new Date(newEnd).getTime();
@@ -409,8 +400,7 @@
       });
     }
 
-    // จัดการบันทึกฟอร์ม
-    function handleFormSubmit(e) {
+    async function handleFormSubmit(e) {
       e.preventDefault();
 
       const fullName = document.getElementById('fullName').value;
@@ -448,7 +438,6 @@
 
         newItems.push({
           id: Date.now() + '-' + i,
-          title: room,
           room,
           activityTitle,
           fullName,
@@ -461,28 +450,40 @@
         });
       }
 
-      // บันทึกข้อมูล
-      bookings.push(...newItems);
-      localStorage.setItem('muka_bookings', JSON.stringify(bookings));
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = true;
+      submitBtn.innerText = 'กำลังบันทึกลง Google Sheet...';
 
-      // รีเฟรชปฏิทิน
-      calendar.removeAllEvents();
-      calendar.addEventSource(getFormattedEvents());
+      try {
+        const response = await fetch(GAS_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(newItems)
+        });
 
-      alert(`บันทึกการจองสำเร็จจำนวน ${newItems.length} รายการเรียบร้อยแล้ว`);
-      document.getElementById('bookingForm').reset();
-      document.getElementById('bookingDate').value = baseDate;
-      toggleRecurrence();
+        const resJson = await response.json();
+        if (resJson.status === 'success') {
+          alert(`บันทึกข้อมูลการจองสำเร็จ ${newItems.length} รายการ`);
+          document.getElementById('bookingForm').reset();
+          document.getElementById('bookingDate').value = baseDate;
+          toggleRecurrence();
+          await fetchBookingsFromSheet();
+        } else {
+          alert('เกิดข้อผิดพลาด: ' + resJson.message);
+        }
+      } catch (err) {
+        alert('ไม่สามารถเชื่อมต่อ Google Sheets ได้ กรุณาตรวจสอบสิทธิ์และการ Deploy');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'ยืนยันการบันทึกข้อมูล';
+      }
     }
 
-    // ตัวกรองห้อง
     function setFilter(roomName) {
       currentFilter = roomName;
-      calendar.removeAllEvents();
-      calendar.addEventSource(getFormattedEvents());
+      refreshCalendarEvents();
     }
 
-    // Modal รายละเอียด
     function showEventDetails(props) {
       const content = `
         <p><strong>ห้อง:</strong> ${props.room}</p>
@@ -503,9 +504,7 @@
       document.getElementById('eventModal').classList.add('hidden');
     }
 
-    // แดชบอร์ด & การออกรายงาน
     function renderDashboard() {
-      // 1. KPI
       document.getElementById('kpiTotalBookings').innerText = bookings.length;
 
       let totalHours = 0;
@@ -514,7 +513,7 @@
 
       bookings.forEach(b => {
         const h = (new Date(b.end) - new Date(b.start)) / (1000 * 60 * 60);
-        totalHours += h;
+        totalHours += isNaN(h) ? 0 : h;
         roomCounts[b.room] = (roomCounts[b.room] || 0) + 1;
         purposeCounts[b.purpose] = (purposeCounts[b.purpose] || 0) + 1;
       });
@@ -527,12 +526,11 @@
       const topPurpose = Object.entries(purposeCounts).sort((a,b) => b[1] - a[1])[0];
       document.getElementById('kpiTopPurpose').innerText = topPurpose ? `${topPurpose[0]} (${topPurpose[1]} ครั้ง)` : '-';
 
-      // 2. ตารางข้อมูล
       const tbody = document.getElementById('bookingsTableBody');
       tbody.innerHTML = bookings.map(b => `
         <tr class="hover:bg-slate-50 transition">
-          <td class="p-3">${b.start.split('T')[0]}</td>
-          <td class="p-3">${b.start.split('T')[1].substring(0,5)} - ${b.end.split('T')[1].substring(0,5)}</td>
+          <td class="p-3">${b.start ? b.start.split('T')[0] : '-'}</td>
+          <td class="p-3">${b.start ? b.start.split('T')[1].substring(0,5) : ''} - ${b.end ? b.end.split('T')[1].substring(0,5) : ''}</td>
           <td class="p-3 font-semibold">${b.room}</td>
           <td class="p-3">${b.activityTitle}</td>
           <td class="p-3">${b.purpose}</td>
@@ -542,7 +540,6 @@
         </tr>
       `).join('');
 
-      // 3. กราฟสรุป (Chart.js)
       renderCharts(roomCounts, purposeCounts);
     }
 
@@ -578,13 +575,12 @@
       });
     }
 
-    // ฟังก์ชันส่งออกเป็น Excel
     function exportToExcel() {
       const dataToExport = bookings.map((b, index) => ({
         'ลำดับ': index + 1,
-        'วันที่': b.start.split('T')[0],
-        'เวลาเริ่ม': b.start.split('T')[1].substring(0,5),
-        'เวลาสิ้นสุด': b.end.split('T')[1].substring(0,5),
+        'วันที่': b.start ? b.start.split('T')[0] : '',
+        'เวลาเริ่ม': b.start ? b.start.split('T')[1].substring(0,5) : '',
+        'เวลาสิ้นสุด': b.end ? b.end.split('T')[1].substring(0,5) : '',
         'ห้อง': b.room,
         'วิชา/กิจกรรม': b.activityTitle,
         'วัตถุประสงค์': b.purpose,
