@@ -2,123 +2,111 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>ระบบจองห้องปฏิบัติการคอมพิวเตอร์ - มหาวิทยาลัยมหิดล วิทยาเขตกาญจนบุรี</title>
   
-  <!-- Tailwind CSS -->
+  <!-- Tailwind CSS สำหรับจัดเลย์เอาต์ (Mobile First) -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- FullCalendar v6 (Global Bundle ตัวเต็ม มีภาษาไทยครบในไฟล์เดียว ป้องกันการโหลดพลาด) -->
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
-
-  <!-- Chart.js -->
+  <!-- Chart.js และ SheetJS -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- SheetJS (Excel Export) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   
   <style>
-    body { font-family: 'Sarabun', sans-serif; }
-    .fc-event { cursor: pointer; border-radius: 4px; padding: 2px 4px; font-size: 0.85rem; }
-    #calendar {
-      min-height: 650px !important;
-      height: 650px !important;
-      width: 100% !important;
-      display: block !important;
-      background-color: #ffffff;
-    }
+    body { font-family: 'Sarabun', sans-serif; background-color: #f8fafc; }
+    
+    /* Custom Calendar Styles */
+    .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid #e2e8f0; border-left: 1px solid #e2e8f0; }
+    .cal-header-cell { padding: 8px 4px; text-align: center; font-weight: 600; font-size: 0.85rem; background: #f1f5f9; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; }
+    .cal-cell { min-height: 80px; padding: 4px; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; background: #ffffff; display: flex; flex-direction: column; }
+    @media (min-width: 768px) { .cal-cell { min-height: 100px; padding: 8px; } }
+    .cal-cell.empty { background: #f8fafc; }
+    .cal-date { font-weight: 600; font-size: 0.8rem; color: #475569; margin-bottom: 4px; }
+    .cal-event { font-size: 0.7rem; padding: 2px 4px; border-radius: 4px; color: white; margin-bottom: 2px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+    
+    /* Custom Scrollbar for Calendar on small screens */
+    .cal-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .cal-min-width { min-width: 600px; } /* บังคับให้ปฏิทินไม่เบียดกันเกินไปในมือถือ สามารถเลื่อนซ้ายขวาได้ */
   </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen">
+<body class="text-slate-800 pb-12">
 
   <!-- Header -->
-  <header class="bg-blue-900 text-white shadow-md">
-    <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-full bg-blue-700 flex items-center justify-center font-bold text-xl border border-blue-400">MUKA</div>
-        <div>
-          <h1 class="text-xl font-bold leading-tight">ระบบจองห้องปฏิบัติการคอมพิวเตอร์และห้องเรียน</h1>
-          <p class="text-xs text-blue-200">มหาวิทยาลัยมหิดล วิทยาเขตกาญจนบุรี</p>
+  <header class="bg-blue-900 text-white shadow-md sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center gap-3">
+      <div class="flex items-center gap-3 w-full md:w-auto justify-center md:justify-start">
+        <div class="w-10 h-10 shrink-0 rounded-full bg-blue-700 flex items-center justify-center font-bold text-lg border border-blue-400">MU</div>
+        <div class="text-center md:text-left">
+          <h1 class="text-base md:text-lg font-bold leading-tight">ระบบจองห้องปฏิบัติการ</h1>
+          <p class="text-xs text-blue-200">ม.มหิดล วิทยาเขตกาญจนบุรี</p>
         </div>
       </div>
       <!-- Tab Navigation -->
-      <nav class="flex space-x-2 bg-blue-950 p-1.5 rounded-lg text-sm">
-        <button id="tabBtnBooking" onclick="switchTab('booking')" class="px-4 py-1.5 rounded-md font-medium transition bg-blue-600 text-white">ปฏิทิน & จองห้อง</button>
-        <button id="tabBtnDashboard" onclick="switchTab('dashboard')" class="px-4 py-1.5 rounded-md font-medium transition text-blue-200 hover:text-white">แดชบอร์ด & รายงาน</button>
+      <nav class="flex w-full md:w-auto bg-blue-950 p-1 rounded-lg text-sm">
+        <button id="tabBtnBooking" onclick="switchTab('booking')" class="flex-1 md:flex-none px-4 py-2 rounded-md font-medium transition bg-blue-600 text-white text-center">ปฏิทิน & จอง</button>
+        <button id="tabBtnDashboard" onclick="switchTab('dashboard')" class="flex-1 md:flex-none px-4 py-2 rounded-md font-medium transition text-blue-200 hover:text-white text-center">รายงาน</button>
       </nav>
     </div>
   </header>
 
   <!-- Main Container -->
-  <main class="max-w-7xl mx-auto p-4 sm:p-6">
+  <main class="max-w-7xl mx-auto p-3 md:p-6 mt-2">
 
     <!-- TAB 1: Booking & Calendar -->
-    <div id="tabBooking" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <div id="tabBooking" class="flex flex-col-reverse lg:flex-row gap-6">
       
-      <!-- ฟอร์มการจอง -->
-      <div class="lg:col-span-5 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+      <!-- ฟอร์มการจอง (ในมือถือจะอยู่ด้านล่างปฏิทิน) -->
+      <div class="w-full lg:w-5/12 bg-white p-4 md:p-6 rounded-xl shadow-sm border border-slate-200 h-fit">
         <h2 class="text-lg font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
-          <span>📝</span> แบบฟอร์มขอใช้งานห้อง
+          <span>📝</span> แบบฟอร์มขอใช้งาน
         </h2>
         
         <form id="bookingForm" onsubmit="handleFormSubmit(event)" class="space-y-4 text-sm">
           <div>
             <label class="block font-semibold mb-1 text-slate-700">ชื่อ - นามสกุล ผู้จอง *</label>
-            <input type="text" id="fullName" required class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="เช่น ดร.สมชาย ใจดี">
+            <input type="text" id="fullName" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="เช่น ดร.สมชาย ใจดี">
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label class="block font-semibold mb-1 text-slate-700">เบอร์โทรศัพท์ติดต่อ *</label>
-              <input type="tel" id="phone" required class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="08x-xxxxxxx">
+              <label class="block font-semibold mb-1 text-slate-700">เบอร์โทรศัพท์ *</label>
+              <input type="tel" id="phone" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="08x-xxxxxxx">
             </div>
             <div>
               <label class="block font-semibold mb-1 text-slate-700">อีเมล *</label>
-              <input type="email" id="email" required class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="name@mahidol.ac.th">
+              <input type="email" id="email" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="name@mahidol.ac.th">
             </div>
           </div>
 
           <div>
             <label class="block font-semibold mb-1 text-slate-700">หน่วยงาน / สาขาวิชา *</label>
-            <select id="department" required class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none bg-white">
-              <option value="" disabled selected>-- เลือกหน่วยงาน/สาขาวิชา --</option>
+            <select id="department" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+              <option value="" disabled selected>-- เลือกหน่วยงาน/สาขา --</option>
+              <option value="งานเทคโนโลยีดิจิทัล">งานเทคโนโลยีดิจิทัล</option>
               <option value="งานสนับสนุนกลุ่มสาขาวิชา">งานสนับสนุนกลุ่มสาขาวิชา</option>
               <option value="งานการศึกษาและกิจการนักศึกษา">งานการศึกษาและกิจการนักศึกษา</option>
-              <option value="งานปฏิบัติการวิทยาศาสตร์เพื่อการศึกษา">งานปฏิบัติการวิทยาศาสตร์เพื่อการศึกษา</option>
-              <option value="งานวิจัย นวัตกรรม และบริการวิชาการ">งานวิจัย นวัตกรรม และบริการวิชาการ</option>
-              <option value="งานวิเทศสัมพันธ์และสื่อสารองค์กร">งานวิเทศสัมพันธ์และสื่อสารองค์กร</option>
-              <option value="งานบริหารและทรัพยากรบุคคล">งานบริหารและทรัพยากรบุคคล</option>
-              <option value="งานแผนและพัฒนาคุณภาพ">งานแผนและพัฒนาคุณภาพ</option>
-              <option value="งานคลังและพัสดุ">งานคลังและพัสดุ</option>
-              <option value="งานเทคโนโลยีดิจิทัล">งานเทคโนโลยีดิจิทัล</option>
-              <option value="งานกายภาพและสิ่งแวดล้อม">งานกายภาพและสิ่งแวดล้อม</option>
-              <option value="งานหอพักและศูนย์พัฒนาฝึกอบรม">งานหอพักและศูนย์พัฒนาฝึกอบรม</option>
+              <option value="สาขาวิชาวิศวกรรมสิ่งแวดล้อมและการจัดการภัยพิบัติ">สาขาวิชาวิศวกรรมสิ่งแวดล้อมฯ</option>
               <option value="สาขาวิชาบริหารธุรกิจ">สาขาวิชาบริหารธุรกิจ</option>
-              <option value="สาขาวิชาบัญชี">สาขาวิชาบัญชี</option>
-              <option value="สาขาวิชาวิทยาศาสตร์การเกษตร">สาขาวิชาวิทยาศาสตร์การเกษตร</option>
-              <option value="สาขาวิชาเทคโนโลยีการอาหาร">สาขาวิชาเทคโนโลยีการอาหาร</option>
-              <option value="สาขาวิชาชีววิทยาเชิงอนุรักษ์">สาขาวิชาชีววิทยาเชิงอนุรักษ์</option>
-              <option value="สาขาวิชาธรณีศาสตร์">สาขาวิชาธรณีศาสตร์</option>
               <option value="สาขาวิชาวิทยาศาสตร์และศิลปะศาสตร์">สาขาวิชาวิทยาศาสตร์และศิลปะศาสตร์</option>
-              <option value="สาขาวิชาวิศวกรรมสิ่งแวดล้อมและการจัดการภัยพิบัติ">สาขาวิชาวิศวกรรมสิ่งแวดล้อมและการจัดการภัยพิบัติ</option>
-              <option value="บัณฑิตศึกษา">บัณฑิตศึกษา</option>
+              <option value="อื่นๆ">อื่นๆ</option>
             </select>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label class="block font-semibold mb-1 text-slate-700">ห้องที่ต้องการจอง *</label>
-              <select id="room" required class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none bg-white">
-                <option value="Lab computer 2201">Lab computer 2201 (แดง)</option>
-                <option value="Lab computer 2204">Lab computer 2204 (เหลือง)</option>
-                <option value="Active learning 2314">Active learning 2314 (เขียว)</option>
-                <option value="Active learning 2316">Active learning 2316 (น้ำเงิน)</option>
+              <label class="block font-semibold mb-1 text-slate-700">ห้องที่ต้องการ *</label>
+              <select id="room" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                <option value="Lab computer 2201">2201 (แดง)</option>
+                <option value="Lab computer 2204">2204 (เหลือง)</option>
+                <option value="Active learning 2314">2314 (เขียว)</option>
+                <option value="Active learning 2316">2316 (น้ำเงิน)</option>
               </select>
             </div>
             <div>
-              <label class="block font-semibold mb-1 text-slate-700">วัตถุประสงค์การใช้งาน *</label>
-              <select id="purpose" required class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+              <label class="block font-semibold mb-1 text-slate-700">วัตถุประสงค์ *</label>
+              <select id="purpose" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white">
                 <option value="การเรียนการสอน">การเรียนการสอน</option>
                 <option value="อบรม/สัมนา">อบรม/สัมนา</option>
                 <option value="กิจกรรม">กิจกรรม</option>
@@ -127,133 +115,149 @@
           </div>
 
           <div>
-            <label class="block font-semibold mb-1 text-slate-700">รหัสรายวิชา / ชื่อกิจกรรม *</label>
-            <input type="text" id="activityTitle" required class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="เช่น วศสต 201 การวิเคราะห์ข้อมูล">
-          </div>
-
-          <div>
-            <label class="block font-semibold mb-1 text-slate-700">รูปแบบการจอง *</label>
-            <div class="flex gap-4 mt-1">
-              <label class="inline-flex items-center">
-                <input type="radio" name="recurrence" value="once" checked onchange="toggleRecurrence()" class="text-blue-600">
-                <span class="ml-2">จองวันเดียว (ครั้งเดียว)</span>
-              </label>
-              <label class="inline-flex items-center">
-                <input type="radio" name="recurrence" value="weekly" onchange="toggleRecurrence()" class="text-blue-600">
-                <span class="ml-2">วัน-เวลาเดิม ทุกอาทิตย์</span>
-              </label>
-            </div>
+            <label class="block font-semibold mb-1 text-slate-700">รายวิชา / ชื่อกิจกรรม *</label>
+            <input type="text" id="activityTitle" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="ระบุชื่อกิจกรรม">
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label class="block font-semibold mb-1 text-slate-700">วันที่เริ่มต้นใช้งาน *</label>
-              <input type="date" id="bookingDate" required class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none">
+              <label class="block font-semibold mb-1 text-slate-700">วันที่ใช้งาน *</label>
+              <input type="date" id="bookingDate" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
             </div>
-            <div id="repeatWeeksContainer" class="hidden">
-              <label class="block font-semibold mb-1 text-slate-700">จำนวนสัปดาห์ที่ทำซ้ำ</label>
-              <input type="number" id="repeatWeeks" min="2" max="16" value="4" class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none">
+            <div>
+              <label class="block font-semibold mb-1 text-slate-700">รูปแบบการจอง</label>
+              <select id="recurrence" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white" onchange="document.getElementById('repeatWeeksContainer').style.display = this.value === 'weekly' ? 'block' : 'none'">
+                <option value="once">จองครั้งเดียว</option>
+                <option value="weekly">ทุกสัปดาห์ (ระบุจำนวน)</option>
+              </select>
             </div>
+          </div>
+          
+          <div id="repeatWeeksContainer" style="display:none;">
+            <label class="block font-semibold mb-1 text-slate-700">จำนวนสัปดาห์ที่จอง *</label>
+            <input type="number" id="repeatWeeks" min="2" max="16" value="4" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
           </div>
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block font-semibold mb-1 text-slate-700">เวลาเริ่มต้น *</label>
-              <input type="time" id="startTime" required value="09:00" class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none">
+              <label class="block font-semibold mb-1 text-slate-700">เวลาเริ่ม *</label>
+              <input type="time" id="startTime" required value="09:00" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
             </div>
             <div>
               <label class="block font-semibold mb-1 text-slate-700">เวลาสิ้นสุด *</label>
-              <input type="time" id="endTime" required value="12:00" class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none">
+              <input type="time" id="endTime" required value="12:00" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
             </div>
           </div>
 
-          <button id="submitBtn" type="submit" class="w-full bg-blue-700 hover:bg-blue-800 text-white font-medium py-2.5 rounded-lg shadow transition mt-2">
+          <button id="submitBtn" type="submit" class="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 rounded-lg shadow-md transition mt-4 text-base">
             ยืนยันการบันทึกข้อมูล
           </button>
         </form>
       </div>
 
-      <!-- ปฏิทินแสดงการจอง -->
-      <div class="lg:col-span-7 bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col">
-        <div class="mb-4 pb-3 border-b border-slate-100 flex flex-wrap gap-2 items-center justify-between">
-          <div class="text-sm font-semibold text-slate-700">ตัวกรองห้อง:</div>
+      <!-- ปฏิทินแสดงการจอง (ในมือถือจะอยู่ด้านบน) -->
+      <div class="w-full lg:w-7/12 bg-white p-4 md:p-6 rounded-xl shadow-sm border border-slate-200">
+        <!-- ตัวกรอง -->
+        <div class="mb-4 pb-4 border-b border-slate-100">
+          <div class="text-sm font-semibold text-slate-700 mb-2">ตัวกรองห้อง:</div>
           <div class="flex flex-wrap gap-2 text-xs">
-            <button onclick="setFilter('all')" class="filter-btn px-2.5 py-1 rounded border border-slate-300 font-medium bg-slate-100" data-filter="all">ทั้งหมด</button>
-            <button onclick="setFilter('Lab computer 2201')" class="filter-btn px-2.5 py-1 rounded text-white font-medium bg-red-600" data-filter="Lab computer 2201">2201 (แดง)</button>
-            <button onclick="setFilter('Lab computer 2204')" class="filter-btn px-2.5 py-1 rounded text-slate-900 font-medium bg-amber-400" data-filter="Lab computer 2204">2204 (เหลือง)</button>
-            <button onclick="setFilter('Active learning 2314')" class="filter-btn px-2.5 py-1 rounded text-white font-medium bg-emerald-600" data-filter="Active learning 2314">2314 (เขียว)</button>
-            <button onclick="setFilter('Active learning 2316')" class="filter-btn px-2.5 py-1 rounded text-white font-medium bg-blue-600" data-filter="Active learning 2316">2316 (น้ำเงิน)</button>
+            <button onclick="setFilter('all', this)" class="filter-btn px-3 py-1.5 rounded-full border border-slate-300 font-bold bg-slate-800 text-white transition">ทั้งหมด</button>
+            <button onclick="setFilter('Lab computer 2201', this)" class="filter-btn px-3 py-1.5 rounded-full font-medium bg-red-100 text-red-700 border border-red-200 transition">2201 (แดง)</button>
+            <button onclick="setFilter('Lab computer 2204', this)" class="filter-btn px-3 py-1.5 rounded-full font-medium bg-yellow-100 text-yellow-700 border border-yellow-200 transition">2204 (เหลือง)</button>
+            <button onclick="setFilter('Active learning 2314', this)" class="filter-btn px-3 py-1.5 rounded-full font-medium bg-emerald-100 text-emerald-700 border border-emerald-200 transition">2314 (เขียว)</button>
+            <button onclick="setFilter('Active learning 2316', this)" class="filter-btn px-3 py-1.5 rounded-full font-medium bg-blue-100 text-blue-700 border border-blue-200 transition">2316 (น้ำเงิน)</button>
           </div>
         </div>
         
-        <!-- จุดวางปฏิทิน -->
-        <div id="calendar" class="w-full bg-white"></div>
+        <!-- แถบเปลี่ยนเดือน -->
+        <div class="flex justify-between items-center mb-4">
+          <button onclick="changeMonth(-1)" class="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-bold">&larr; เดือนก่อน</button>
+          <h3 id="calMonthYear" class="font-bold text-lg text-slate-800"></h3>
+          <button onclick="changeMonth(1)" class="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-bold">เดือนถัดไป &rarr;</button>
+        </div>
+
+        <!-- ปฏิทินทำเอง (Pure JS) ไม่พัง 100% -->
+        <div class="cal-wrapper rounded-lg border border-slate-200">
+          <div class="cal-min-width">
+            <div class="cal-grid bg-slate-50">
+              <div class="cal-header-cell text-red-600">อา.</div>
+              <div class="cal-header-cell">จ.</div>
+              <div class="cal-header-cell">อ.</div>
+              <div class="cal-header-cell">พ.</div>
+              <div class="cal-header-cell">พฤ.</div>
+              <div class="cal-header-cell">ศ.</div>
+              <div class="cal-header-cell text-blue-600">ส.</div>
+            </div>
+            <div id="customCalendarBody" class="cal-grid">
+              <!-- JS จะสร้างช่องวันที่ใส่ตรงนี้ -->
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- TAB 2: Dashboard & Reports -->
-    <div id="tabDashboard" class="hidden space-y-6">
-      <div class="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+    <div id="tabDashboard" class="hidden space-y-4 md:space-y-6">
+      <div class="bg-white p-4 rounded-xl border border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 class="text-lg font-bold text-slate-800">แดชบอร์ดสรุปผลและรายงาน</h2>
+          <h2 class="text-lg font-bold text-slate-800">แดชบอร์ดสรุปผล</h2>
           <p class="text-xs text-slate-500">สถิติการใช้งานห้องปฏิบัติการคอมพิวเตอร์และห้องเรียน</p>
         </div>
-        <div class="flex gap-2">
-          <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 transition">
-            <span>📊</span> ส่งออก Excel (.xlsx)
+        <div class="flex gap-2 w-full sm:w-auto">
+          <button onclick="exportToExcel()" class="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex justify-center items-center gap-1.5 transition">
+            📊 ส่งออก Excel
           </button>
-          <button onclick="window.print()" class="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 transition">
-            <span>🖨️</span> พิมพ์รายงาน / PDF
+          <button onclick="window.print()" class="flex-1 sm:flex-none bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-bold flex justify-center items-center gap-1.5 transition">
+            🖨️ พิมพ์
           </button>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-          <div class="text-slate-500 text-xs font-semibold uppercase">จำนวนรายการจองทั้งหมด</div>
-          <div id="kpiTotalBookings" class="text-2xl font-bold text-slate-800 mt-1">0</div>
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <div class="bg-white p-4 md:p-5 rounded-xl border border-slate-200 shadow-sm">
+          <div class="text-slate-500 text-xs font-semibold uppercase">รายการจองทั้งหมด</div>
+          <div id="kpiTotalBookings" class="text-xl md:text-2xl font-bold text-slate-800 mt-1">0</div>
         </div>
-        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-          <div class="text-slate-500 text-xs font-semibold uppercase">ชั่วโมงการใช้งานรวม</div>
-          <div id="kpiTotalHours" class="text-2xl font-bold text-blue-600 mt-1">0 ชม.</div>
+        <div class="bg-white p-4 md:p-5 rounded-xl border border-slate-200 shadow-sm">
+          <div class="text-slate-500 text-xs font-semibold uppercase">ชั่วโมงใช้งานรวม</div>
+          <div id="kpiTotalHours" class="text-xl md:text-2xl font-bold text-blue-600 mt-1">0 ชม.</div>
         </div>
-        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-          <div class="text-slate-500 text-xs font-semibold uppercase">ห้องที่มีการใช้งานมากที่สุด</div>
-          <div id="kpiTopRoom" class="text-lg font-bold text-emerald-600 mt-1">-</div>
+        <div class="bg-white p-4 md:p-5 rounded-xl border border-slate-200 shadow-sm">
+          <div class="text-slate-500 text-xs font-semibold uppercase">ห้องยอดฮิต</div>
+          <div id="kpiTopRoom" class="text-sm md:text-lg font-bold text-emerald-600 mt-1 leading-tight whitespace-nowrap overflow-hidden text-ellipsis">-</div>
         </div>
-        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-          <div class="text-slate-500 text-xs font-semibold uppercase">วัตถุประสงค์ยอดนิยม</div>
-          <div id="kpiTopPurpose" class="text-lg font-bold text-purple-600 mt-1">-</div>
+        <div class="bg-white p-4 md:p-5 rounded-xl border border-slate-200 shadow-sm">
+          <div class="text-slate-500 text-xs font-semibold uppercase">วัตถุประสงค์หลัก</div>
+          <div id="kpiTopPurpose" class="text-sm md:text-lg font-bold text-purple-600 mt-1 leading-tight">-</div>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-          <h3 class="font-bold text-slate-700 text-sm mb-4">สถิติจำนวนการใช้งานแยกตามห้อง</h3>
-          <div class="h-64"><canvas id="roomChart"></canvas></div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+        <div class="bg-white p-4 md:p-5 rounded-xl border border-slate-200 shadow-sm">
+          <h3 class="font-bold text-slate-700 text-sm mb-4">จำนวนครั้งการใช้งานแยกตามห้อง</h3>
+          <div class="h-56 md:h-64"><canvas id="roomChart"></canvas></div>
         </div>
-        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-          <h3 class="font-bold text-slate-700 text-sm mb-4">สัดส่วนตามวัตถุประสงค์การใช้งาน</h3>
-          <div class="h-64"><canvas id="purposeChart"></canvas></div>
+        <div class="bg-white p-4 md:p-5 rounded-xl border border-slate-200 shadow-sm">
+          <h3 class="font-bold text-slate-700 text-sm mb-4">สัดส่วนตามวัตถุประสงค์</h3>
+          <div class="h-56 md:h-64"><canvas id="purposeChart"></canvas></div>
         </div>
       </div>
 
       <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-        <div class="p-4 border-b border-slate-100 flex justify-between items-center">
-          <h3 class="font-bold text-slate-800 text-sm">ตารางข้อมูลการจองห้องทั้งหมด</h3>
+        <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <h3 class="font-bold text-slate-800 text-sm">ตารางรายการจองทั้งหมด</h3>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs border-collapse">
-            <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-semibold">
+          <table class="w-full text-left text-xs md:text-sm border-collapse min-w-[700px]">
+            <thead class="border-b border-slate-200 text-slate-600 uppercase font-semibold">
               <tr>
                 <th class="p-3">วันที่</th>
                 <th class="p-3">เวลา</th>
                 <th class="p-3">ห้อง</th>
-                <th class="p-3">กิจกรรม/รายวิชา</th>
-                <th class="p-3">วัตถุประสงค์</th>
+                <th class="p-3">กิจกรรม</th>
                 <th class="p-3">ผู้จอง</th>
                 <th class="p-3">หน่วยงาน</th>
-                <th class="p-3">เบอร์โทรศัพท์</th>
+                <th class="p-3">โทรศัพท์</th>
               </tr>
             </thead>
             <tbody id="bookingsTableBody" class="divide-y divide-slate-100 text-slate-700"></tbody>
@@ -263,132 +267,136 @@
     </div>
   </main>
 
-  <!-- Modal รายละเอียด -->
-  <div id="eventModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-xl max-w-md w-full p-6 shadow-xl relative">
-      <h3 class="text-lg font-bold text-slate-800 mb-3 border-b pb-2 flex items-center gap-2">
-        <span>📌</span> ข้อมูลรายละเอียดการจอง
+  <!-- Modal สำหรับแสดงรายละเอียดเมื่อกดปฏิทิน -->
+  <div id="eventModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+      <h3 class="text-lg font-bold text-slate-800 mb-3 border-b pb-3 flex items-center gap-2">
+        <span>📌</span> รายละเอียดการจอง
       </h3>
-      <div id="modalDetails" class="space-y-2 text-sm text-slate-600"></div>
-      <div class="mt-6 flex justify-end">
-        <button onclick="closeModal()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium rounded-lg text-sm transition">
-          ปิดหน้าต่าง
-        </button>
-      </div>
+      <div id="modalDetails" class="space-y-2 text-sm text-slate-600 mb-6"></div>
+      <button onclick="document.getElementById('eventModal').classList.add('hidden')" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-3 rounded-xl transition">
+        ปิดหน้าต่าง
+      </button>
     </div>
   </div>
 
   <script>
     // -------------------------------------------------------------
-    // URL Google Apps Script ของคุณ
+    // URL Google Apps Script
     // -------------------------------------------------------------
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxy-cSuQea_8odsvcVIATrz8Tp0vWrdX35Hlx9-m5ofvnbf-vChbTgbQCv4qvBDINDb/exec";
 
+    // ตั้งค่าสีห้อง
     const ROOM_COLORS = {
-      'Lab computer 2201': { bg: '#dc2626', text: '#ffffff' },
-      'Lab computer 2204': { bg: '#eab308', text: '#1e293b' },
-      'Active learning 2314': { bg: '#059669', text: '#ffffff' },
-      'Active learning 2316': { bg: '#2563eb', text: '#ffffff' }
+      'Lab computer 2201': '#ef4444', // แดง
+      'Lab computer 2204': '#eab308', // เหลือง
+      'Active learning 2314': '#10b981', // เขียว
+      'Active learning 2316': '#3b82f6'  // น้ำเงิน
     };
 
-    let calendar = null;
+    let bookings = [];
     let currentFilter = 'all';
     let chartRoomInstance = null;
     let chartPurposeInstance = null;
     
-    // โหลดข้อมูลที่มีในเครื่องขึ้นมาก่อนทันทีเพื่อความเร็ว
-    let bookings = [];
-    try {
-      bookings = JSON.parse(localStorage.getItem('muka_bookings')) || [];
-    } catch(e) {
-      bookings = [];
-    }
+    // ตั้งค่าเดือน/ปี ปัจจุบันสำหรับปฏิทิน
+    let currentDisplayDate = new Date();
 
-    function normalizeDate(d) {
-      if (!d) return '';
-      if (typeof d === 'string' && d.includes('T')) return d;
-      try {
-        const dt = new Date(d);
-        if (isNaN(dt.getTime())) return String(d);
-        const y = dt.getFullYear();
-        const m = String(dt.getMonth() + 1).padStart(2, '0');
-        const day = String(dt.getDate()).padStart(2, '0');
-        const h = String(dt.getHours()).padStart(2, '0');
-        const min = String(dt.getMinutes()).padStart(2, '0');
-        const s = String(dt.getSeconds()).padStart(2, '0');
-        return `${y}-${m}-${day}T${h}:${min}:${s}`;
-      } catch (e) {
-        return String(d);
-      }
-    }
-
-    // เริ่มต้นทำงานทันทีที่ DOM พร้อม
+    // เริ่มทำงานเมื่อเปิดเว็บ
     document.addEventListener('DOMContentLoaded', () => {
-      const todayStr = new Date().toISOString().split('T')[0];
-      const dateInput = document.getElementById('bookingDate');
-      if (dateInput) dateInput.value = todayStr;
-
-      // วาดปฏิทินทันที
-      initCalendar();
-
-      // ดึงข้อมูลล่าสุดจาก Sheets
+      // ตั้งวันที่ฟอร์มเป็นวันนี้
+      document.getElementById('bookingDate').value = new Date().toISOString().split('T')[0];
+      
+      // ดึงข้อมูล Local ทันทีเพื่อความเร็ว
+      try {
+        bookings = JSON.parse(localStorage.getItem('muka_bookings')) || [];
+      } catch(e) { bookings = []; }
+      
+      renderCalendar();
       fetchBookingsFromSheet();
     });
 
-    function initCalendar() {
-      const calendarEl = document.getElementById('calendar');
-      if (!calendarEl) return;
+    // -----------------------------------------
+    // ระบบปฏิทิน Pure JS (ทำเอง 100% ไม่พังชัวร์)
+    // -----------------------------------------
+    const thMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 
-      try {
-        calendar = new FullCalendar.Calendar(calendarEl, {
-          initialView: 'timeGridWeek',
-          timeZone: 'Asia/Bangkok',
-          locale: 'th',
-          headerToolbar: {
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,timeGridWeek,timeGridDay'
-          },
-          slotMinTime: '08:00:00',
-          slotMaxTime: '20:00:00',
-          allDaySlot: false,
-          height: 650,
-          events: getFormattedEvents(),
-          eventClick: (info) => {
-            showEventDetails(info.event.extendedProps);
+    function changeMonth(dir) {
+      currentDisplayDate.setMonth(currentDisplayDate.getMonth() + dir);
+      renderCalendar();
+    }
+
+    function renderCalendar() {
+      const year = currentDisplayDate.getFullYear();
+      const month = currentDisplayDate.getMonth();
+      
+      // อัปเดตหัวข้อปฏิทิน
+      document.getElementById('calMonthYear').innerText = `${thMonths[month]} ${year + 543}`;
+      
+      const firstDay = new Date(year, month, 1).getDay(); // หาวันแรกของเดือนว่าตรงกับวันอะไร
+      const daysInMonth = new Date(year, month + 1, 0).getDate(); // หาจำนวนวันในเดือนนั้น
+      
+      const calBody = document.getElementById('customCalendarBody');
+      calBody.innerHTML = '';
+      
+      let dateNum = 1;
+      
+      // สร้าง 6 สัปดาห์ (42 วัน) เผื่อเดือนที่ยาว
+      for (let i = 0; i < 42; i++) {
+        const cell = document.createElement('div');
+        
+        if (i < firstDay || dateNum > daysInMonth) {
+          // ช่องว่าง
+          cell.className = 'cal-cell empty';
+        } else {
+          // ช่องมีวันที่
+          cell.className = 'cal-cell';
+          const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(dateNum).padStart(2,'0')}`;
+          
+          // ตัวเลขวันที่
+          const dateLabel = document.createElement('div');
+          dateLabel.className = 'cal-date';
+          dateLabel.innerText = dateNum;
+          if(dateStr === new Date().toISOString().split('T')[0]) {
+            dateLabel.style.color = '#2563eb';
+            dateLabel.style.fontWeight = 'bold';
+            dateLabel.style.fontSize = '1rem';
           }
-        });
-        calendar.render();
-      } catch (err) {
-        console.error("Calendar Render Error:", err);
+          cell.appendChild(dateLabel);
+          
+          // ค้นหาอีเวนต์ในวันนี้
+          const dayEvents = bookings.filter(b => {
+            if(!b.start) return false;
+            const bDate = b.start.split('T')[0];
+            return bDate === dateStr && (currentFilter === 'all' || b.room === currentFilter);
+          });
+          
+          // เรียงตามเวลา
+          dayEvents.sort((a,b) => a.start.localeCompare(b.start));
+          
+          // วาดอีเวนต์
+          dayEvents.forEach(ev => {
+            const evEl = document.createElement('div');
+            evEl.className = 'cal-event';
+            evEl.style.backgroundColor = ROOM_COLORS[ev.room] || '#64748b';
+            
+            const timeTxt = ev.start.split('T')[1].substring(0,5);
+            const shortRoom = ev.room.replace('Lab computer ', '').replace('Active learning ', '');
+            
+            evEl.innerText = `${timeTxt} ${shortRoom}`;
+            evEl.onclick = () => showEventDetails(ev);
+            cell.appendChild(evEl);
+          });
+          
+          dateNum++;
+        }
+        calBody.appendChild(cell);
       }
     }
 
-    function getFormattedEvents() {
-      return bookings
-        .filter(b => currentFilter === 'all' || b.room === currentFilter)
-        .map(b => {
-          const color = ROOM_COLORS[b.room] || { bg: '#4b5563', text: '#ffffff' };
-          return {
-            id: String(b.id || Date.now()),
-            title: b.room,
-            start: normalizeDate(b.start),
-            end: normalizeDate(b.end),
-            backgroundColor: color.bg,
-            borderColor: color.bg,
-            textColor: color.text,
-            extendedProps: { ...b }
-          };
-        });
-    }
-
-    function refreshCalendarEvents() {
-      if (calendar) {
-        calendar.removeAllEvents();
-        calendar.addEventSource(getFormattedEvents());
-      }
-    }
-
+    // -----------------------------------------
+    // API & Data Logic
+    // -----------------------------------------
     async function fetchBookingsFromSheet() {
       if (!GAS_API_URL) return;
       try {
@@ -397,50 +405,23 @@
         if (result && result.status === 'success' && Array.isArray(result.data)) {
           bookings = result.data.map(item => ({
             ...item,
-            start: normalizeDate(item.start),
-            end: normalizeDate(item.end)
+            start: item.start ? item.start.replace('Z', '') : '',
+            end: item.end ? item.end.replace('Z', '') : ''
           }));
           localStorage.setItem('muka_bookings', JSON.stringify(bookings));
-          refreshCalendarEvents();
+          renderCalendar();
           if (!document.getElementById('tabDashboard').classList.contains('hidden')) {
             renderDashboard();
           }
         }
       } catch (err) {
-        console.warn("ดึงข้อมูลจาก Sheets ไม่สำเร็จ ใช้ข้อมูลในเครื่องแทน");
+        console.warn("API Error, using local data.");
       }
-    }
-
-    function switchTab(tab) {
-      const isBooking = tab === 'booking';
-      document.getElementById('tabBooking').classList.toggle('hidden', !isBooking);
-      document.getElementById('tabDashboard').classList.toggle('hidden', isBooking);
-
-      const btnBooking = document.getElementById('tabBtnBooking');
-      const btnDashboard = document.getElementById('tabBtnDashboard');
-
-      if (isBooking) {
-        btnBooking.className = "px-4 py-1.5 rounded-md font-medium transition bg-blue-600 text-white";
-        btnDashboard.className = "px-4 py-1.5 rounded-md font-medium transition text-blue-200 hover:text-white";
-        if (calendar) {
-          setTimeout(() => { calendar.updateSize(); }, 50);
-        }
-      } else {
-        btnDashboard.className = "px-4 py-1.5 rounded-md font-medium transition bg-blue-600 text-white";
-        btnBooking.className = "px-4 py-1.5 rounded-md font-medium transition text-blue-200 hover:text-white";
-        renderDashboard();
-      }
-    }
-
-    function toggleRecurrence() {
-      const isWeekly = document.querySelector('input[name="recurrence"]:checked').value === 'weekly';
-      document.getElementById('repeatWeeksContainer').classList.toggle('hidden', !isWeekly);
     }
 
     function hasTimeConflict(newStart, newEnd, room) {
       const startMs = new Date(newStart).getTime();
       const endMs = new Date(newEnd).getTime();
-
       return bookings.some(b => {
         if (b.room !== room) return false;
         const existStart = new Date(b.start).getTime();
@@ -451,64 +432,76 @@
 
     async function handleFormSubmit(e) {
       e.preventDefault();
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = true;
+      submitBtn.innerText = 'กำลังบันทึกข้อมูล...';
 
-      const fullName = document.getElementById('fullName').value;
-      const phone = document.getElementById('phone').value;
-      const email = document.getElementById('email').value;
-      const department = document.getElementById('department').value;
-      const room = document.getElementById('room').value;
-      const purpose = document.getElementById('purpose').value;
-      const activityTitle = document.getElementById('activityTitle').value;
-      const recurrence = document.querySelector('input[name="recurrence"]:checked').value;
-      const baseDate = document.getElementById('bookingDate').value;
-      const startTime = document.getElementById('startTime').value;
-      const endTime = document.getElementById('endTime').value;
+      const formData = {
+        fullName: document.getElementById('fullName').value,
+        phone: document.getElementById('phone').value,
+        email: document.getElementById('email').value,
+        department: document.getElementById('department').value,
+        room: document.getElementById('room').value,
+        purpose: document.getElementById('purpose').value,
+        activityTitle: document.getElementById('activityTitle').value,
+        baseDate: document.getElementById('bookingDate').value,
+        startTime: document.getElementById('startTime').value,
+        endTime: document.getElementById('endTime').value,
+        recurrence: document.getElementById('recurrence').value,
+        weeks: parseInt(document.getElementById('repeatWeeks').value) || 1
+      };
 
-      if (startTime >= endTime) {
+      if (formData.startTime >= formData.endTime) {
         alert('เวลาสิ้นสุดต้องมากกว่าเวลาเริ่มต้น');
+        submitBtn.disabled = false; submitBtn.innerText = 'ยืนยันการบันทึกข้อมูล';
         return;
       }
 
-      const count = recurrence === 'weekly' ? parseInt(document.getElementById('repeatWeeks').value) || 1 : 1;
+      const count = formData.recurrence === 'weekly' ? formData.weeks : 1;
       const newItems = [];
 
       for (let i = 0; i < count; i++) {
-        const d = new Date(baseDate);
+        const d = new Date(formData.baseDate);
         d.setDate(d.getDate() + (i * 7));
         const dateStr = d.toISOString().split('T')[0];
+        const startIso = `${dateStr}T${formData.startTime}:00`;
+        const endIso = `${dateStr}T${formData.endTime}:00`;
 
-        const startIso = `${dateStr}T${startTime}:00`;
-        const endIso = `${dateStr}T${endTime}:00`;
-
-        if (hasTimeConflict(startIso, endIso, room)) {
-          alert(`ไม่สามารถจองได้: ห้อง ${room} มีผู้ใช้งานแล้วในวันที่ ${dateStr} เวลา ${startTime} - ${endTime}`);
+        if (hasTimeConflict(startIso, endIso, formData.room)) {
+          alert(`ไม่สามารถจองได้! ห้อง ${formData.room} วันที่ ${dateStr} เวลา ${formData.startTime} มีคนจองแล้ว`);
+          submitBtn.disabled = false; submitBtn.innerText = 'ยืนยันการบันทึกข้อมูล';
           return;
         }
 
         newItems.push({
           id: Date.now() + '-' + i,
-          room,
-          activityTitle,
-          fullName,
-          phone,
-          email,
-          department,
-          purpose,
+          room: formData.room,
+          activityTitle: formData.activityTitle,
+          fullName: formData.fullName,
+          phone: formData.phone,
+          email: formData.email,
+          department: formData.department,
+          purpose: formData.purpose,
           start: startIso,
           end: endIso
         });
       }
 
-      const submitBtn = document.getElementById('submitBtn');
-      submitBtn.disabled = true;
-      submitBtn.innerText = 'กำลังบันทึกลงระบบ...';
-
-      // 1. บันทึกข้อมูลและแสดงบนปฏิทินทันที
+      // บันทึกลง UI ทันทีไม่ต้องรอ API
       bookings.push(...newItems);
       localStorage.setItem('muka_bookings', JSON.stringify(bookings));
-      refreshCalendarEvents();
+      
+      // สลับปฏิทินไปเดือนที่จอง
+      currentDisplayDate = new Date(formData.baseDate);
+      renderCalendar();
 
-      // 2. ส่งข้อมูลไป Google Sheets เบื้องหลัง
+      alert(`บันทึกข้อมูลสำเร็จ ${newItems.length} รายการ!`);
+      document.getElementById('bookingForm').reset();
+      document.getElementById('bookingDate').value = formData.baseDate;
+      document.getElementById('repeatWeeksContainer').style.display = 'none';
+      submitBtn.disabled = false; submitBtn.innerText = 'ยืนยันการบันทึกข้อมูล';
+
+      // ส่งเข้า Google Sheet
       try {
         await fetch(GAS_API_URL, {
           method: 'POST',
@@ -516,44 +509,63 @@
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(newItems)
         });
-      } catch (err) {
-        console.error("บันทึกไป Google Sheets ไม่สำเร็จ:", err);
+      } catch (err) { console.error("Sheets sync error"); }
+    }
+
+    // -----------------------------------------
+    // UI Interactions
+    // -----------------------------------------
+    function switchTab(tab) {
+      document.getElementById('tabBooking').classList.toggle('hidden', tab !== 'booking');
+      document.getElementById('tabDashboard').classList.toggle('hidden', tab !== 'dashboard');
+
+      const btn1 = document.getElementById('tabBtnBooking');
+      const btn2 = document.getElementById('tabBtnDashboard');
+
+      if (tab === 'booking') {
+        btn1.className = "flex-1 md:flex-none px-4 py-2 rounded-md font-bold transition bg-blue-600 text-white text-center";
+        btn2.className = "flex-1 md:flex-none px-4 py-2 rounded-md font-medium transition text-blue-200 hover:text-white text-center";
+      } else {
+        btn2.className = "flex-1 md:flex-none px-4 py-2 rounded-md font-bold transition bg-blue-600 text-white text-center";
+        btn1.className = "flex-1 md:flex-none px-4 py-2 rounded-md font-medium transition text-blue-200 hover:text-white text-center";
+        renderDashboard();
       }
-
-      alert(`บันทึกข้อมูลการจองสำเร็จ ${newItems.length} รายการ`);
-      document.getElementById('bookingForm').reset();
-      document.getElementById('bookingDate').value = baseDate;
-      toggleRecurrence();
-
-      submitBtn.disabled = false;
-      submitBtn.innerText = 'ยืนยันการบันทึกข้อมูล';
     }
 
-    function setFilter(roomName) {
+    function setFilter(roomName, btnElement) {
       currentFilter = roomName;
-      refreshCalendarEvents();
+      // รีเซ็ตปุ่มทั้งหมด
+      document.querySelectorAll('.filter-btn').forEach(b => {
+        b.classList.remove('bg-slate-800', 'text-white', 'font-bold');
+        if(b.innerText === 'ทั้งหมด') { b.classList.add('bg-white', 'text-slate-700'); }
+      });
+      // ไฮไลต์ปุ่มที่กด (ใช้ลูกทุ่งแบบเปลี่ยนสไตล์ตรงๆ)
+      btnElement.style.borderWidth = '2px';
+      btnElement.style.borderColor = '#1e293b';
+      setTimeout(() => { document.querySelectorAll('.filter-btn').forEach(b => b.style.borderWidth = '1px'); btnElement.style.borderWidth = '2px';}, 50);
+      
+      renderCalendar();
     }
 
-    function showEventDetails(props) {
+    function showEventDetails(ev) {
+      const dStart = new Date(ev.start);
       const content = `
-        <p><strong>ห้อง:</strong> ${props.room || '-'}</p>
-        <p><strong>วิชา/กิจกรรม:</strong> ${props.activityTitle || '-'}</p>
-        <p><strong>วัตถุประสงค์:</strong> ${props.purpose || '-'}</p>
-        <p><strong>เวลา:</strong> ${new Date(props.start).toLocaleString('th-TH')} - ${new Date(props.end).toLocaleTimeString('th-TH')}</p>
-        <hr class="my-2 border-slate-100">
-        <p><strong>ผู้จอง:</strong> ${props.fullName || '-'}</p>
-        <p><strong>หน่วยงาน:</strong> ${props.department || '-'}</p>
-        <p><strong>เบอร์โทรศัพท์:</strong> ${props.phone || '-'}</p>
-        <p><strong>อีเมล:</strong> ${props.email || '-'}</p>
+        <div class="mb-2"><span class="font-bold text-slate-700">ห้อง:</span> <span class="text-blue-700 font-bold">${ev.room || '-'}</span></div>
+        <div class="mb-2"><span class="font-bold text-slate-700">กิจกรรม:</span> ${ev.activityTitle || '-'}</div>
+        <div class="mb-2"><span class="font-bold text-slate-700">เวลา:</span> ${dStart.toLocaleDateString('th-TH')} <br>⏰ ${ev.start.split('T')[1].substring(0,5)} น. - ${ev.end.split('T')[1].substring(0,5)} น.</div>
+        <div class="mb-2"><span class="font-bold text-slate-700">วัตถุประสงค์:</span> ${ev.purpose || '-'}</div>
+        <hr class="my-3 border-slate-200">
+        <div class="mb-2 text-xs md:text-sm"><span class="font-bold text-slate-700">ผู้จอง:</span> ${ev.fullName || '-'}</div>
+        <div class="mb-2 text-xs md:text-sm"><span class="font-bold text-slate-700">หน่วยงาน:</span> ${ev.department || '-'}</div>
+        <div class="mb-2 text-xs md:text-sm"><span class="font-bold text-slate-700">โทรศัพท์:</span> ${ev.phone || '-'}</div>
       `;
       document.getElementById('modalDetails').innerHTML = content;
       document.getElementById('eventModal').classList.remove('hidden');
     }
 
-    function closeModal() {
-      document.getElementById('eventModal').classList.add('hidden');
-    }
-
+    // -----------------------------------------
+    // Dashboard & Report
+    // -----------------------------------------
     function renderDashboard() {
       document.getElementById('kpiTotalBookings').innerText = bookings.length;
 
@@ -562,10 +574,10 @@
       const purposeCounts = {};
 
       bookings.forEach(b => {
-        const startDt = new Date(b.start);
-        const endDt = new Date(b.end);
-        const h = (endDt - startDt) / (1000 * 60 * 60);
-        totalHours += isNaN(h) ? 0 : h;
+        if(b.start && b.end) {
+          const h = (new Date(b.end) - new Date(b.start)) / 3600000;
+          totalHours += isNaN(h) ? 0 : h;
+        }
         if (b.room) roomCounts[b.room] = (roomCounts[b.room] || 0) + 1;
         if (b.purpose) purposeCounts[b.purpose] = (purposeCounts[b.purpose] || 0) + 1;
       });
@@ -573,34 +585,29 @@
       document.getElementById('kpiTotalHours').innerText = `${totalHours.toFixed(1)} ชม.`;
 
       const topRoom = Object.entries(roomCounts).sort((a,b) => b[1] - a[1])[0];
-      document.getElementById('kpiTopRoom').innerText = topRoom ? `${topRoom[0]} (${topRoom[1]} ครั้ง)` : '-';
+      document.getElementById('kpiTopRoom').innerText = topRoom ? topRoom[0].replace('Lab computer ','').replace('Active learning ','') : '-';
 
       const topPurpose = Object.entries(purposeCounts).sort((a,b) => b[1] - a[1])[0];
-      document.getElementById('kpiTopPurpose').innerText = topPurpose ? `${topPurpose[0]} (${topPurpose[1]} ครั้ง)` : '-';
+      document.getElementById('kpiTopPurpose').innerText = topPurpose ? topPurpose[0] : '-';
 
       const tbody = document.getElementById('bookingsTableBody');
       tbody.innerHTML = bookings.map(b => {
-        const d = new Date(b.start);
-        const dateStr = !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : String(b.start);
-        const timeStr = !isNaN(d.getTime()) ? `${new Date(b.start).toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})} - ${new Date(b.end).toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})}` : '-';
+        const dateStr = b.start ? new Date(b.start).toLocaleDateString('th-TH') : '-';
+        const timeStr = b.start && b.end ? `${b.start.split('T')[1].substring(0,5)} - ${b.end.split('T')[1].substring(0,5)}` : '-';
         return `
-          <tr class="hover:bg-slate-50 transition">
-            <td class="p-3">${dateStr}</td>
-            <td class="p-3">${timeStr}</td>
-            <td class="p-3 font-semibold">${b.room || '-'}</td>
-            <td class="p-3">${b.activityTitle || '-'}</td>
-            <td class="p-3">${b.purpose || '-'}</td>
+          <tr class="hover:bg-blue-50 transition">
+            <td class="p-3 whitespace-nowrap">${dateStr}</td>
+            <td class="p-3 whitespace-nowrap text-blue-700 font-medium">${timeStr}</td>
+            <td class="p-3 font-bold">${b.room || '-'}</td>
+            <td class="p-3 min-w-[150px]">${b.activityTitle || '-'}</td>
             <td class="p-3">${b.fullName || '-'}</td>
-            <td class="p-3">${b.department || '-'}</td>
-            <td class="p-3">${b.phone || '-'}</td>
+            <td class="p-3 text-xs">${b.department || '-'}</td>
+            <td class="p-3 whitespace-nowrap">${b.phone || '-'}</td>
           </tr>
         `;
       }).join('');
 
-      renderCharts(roomCounts, purposeCounts);
-    }
-
-    function renderCharts(roomCounts, purposeCounts) {
+      // Charts
       if (chartRoomInstance) chartRoomInstance.destroy();
       if (chartPurposeInstance) chartPurposeInstance.destroy();
 
@@ -611,12 +618,13 @@
           data: {
             labels: Object.keys(ROOM_COLORS),
             datasets: [{
-              label: 'จำนวนครั้งที่ใช้งาน',
+              label: 'ครั้ง',
               data: Object.keys(ROOM_COLORS).map(k => roomCounts[k] || 0),
-              backgroundColor: ['#dc2626', '#eab308', '#059669', '#2563eb']
+              backgroundColor: ['#ef4444', '#eab308', '#10b981', '#3b82f6'],
+              borderRadius: 4
             }]
           },
-          options: { responsive: true, maintainAspectRatio: false }
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
       }
 
@@ -628,7 +636,8 @@
             labels: Object.keys(purposeCounts),
             datasets: [{
               data: Object.values(purposeCounts),
-              backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6']
+              backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'],
+              borderWidth: 0
             }]
           },
           options: { responsive: true, maintainAspectRatio: false }
@@ -638,13 +647,11 @@
 
     function exportToExcel() {
       const dataToExport = bookings.map((b, index) => {
-        const d = new Date(b.start);
-        const dateStr = !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : String(b.start);
         return {
           'ลำดับ': index + 1,
-          'วันที่': dateStr,
-          'เวลาเริ่ม': !isNaN(d.getTime()) ? new Date(b.start).toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}) : '',
-          'เวลาสิ้นสุด': !isNaN(d.getTime()) ? new Date(b.end).toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}) : '',
+          'วันที่': b.start ? new Date(b.start).toLocaleDateString('th-TH') : '',
+          'เวลาเริ่ม': b.start ? b.start.split('T')[1].substring(0,5) : '',
+          'เวลาสิ้นสุด': b.end ? b.end.split('T')[1].substring(0,5) : '',
           'ห้อง': b.room,
           'วิชา/กิจกรรม': b.activityTitle,
           'วัตถุประสงค์': b.purpose,
@@ -657,8 +664,8 @@
 
       const ws = XLSX.utils.json_to_sheet(dataToExport);
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Bookings_Report");
-      XLSX.writeFile(wb, `รายงานการจองห้อง_MUKA_${new Date().toISOString().split('T')[0]}.xlsx`);
+      XLSX.utils.book_append_sheet(wb, ws, "Bookings");
+      XLSX.writeFile(wb, `รายงานจองห้อง_MUKA_${new Date().toISOString().split('T')[0]}.xlsx`);
     }
   </script>
 </body>
